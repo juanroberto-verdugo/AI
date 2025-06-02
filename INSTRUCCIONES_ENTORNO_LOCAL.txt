@@ -1,0 +1,123 @@
+===================================================
+ GUÍA PARA PREPARAR EL ENTORNO LOCAL DE EJECUCIÓN
+===================================================
+
+Este documento describe los pasos para configurar tu computadora local y poder ejecutar la aplicación de monitoreo de flujo.
+
+---------------------------------
+PASO 1: INSTALAR SOFTWARE ESENCIAL
+---------------------------------
+
+Necesitarás el siguiente software:
+
+1.  **Node.js y npm:**
+    *   Función: Ejecutar el backend (Node.js) y el frontend (herramientas de construcción), y gestionar paquetes (npm).
+    *   Instalación: Ve a https://nodejs.org/ (descarga la versión LTS). npm se incluye con Node.js.
+    *   Verificación (en terminal): `node -v` y `npm -v`
+
+2.  **Git:**
+    *   Función: Sistema de control de versiones para obtener y gestionar el código.
+    *   Instalación: Ve a https://git-scm.com/downloads/
+    *   Verificación (en terminal): `git --version`
+
+3.  **PostgreSQL (Servidor de Base de Datos):**
+    *   Función: Almacenar datos de empresas, usuarios, dispositivos y lecturas.
+    *   Instalación: Ve a https://www.postgresql.org/download/ (los instaladores de EDB son recomendados).
+        *   IMPORTANTE: Recuerda la contraseña que establezcas para el usuario 'postgres' durante la instalación.
+        *   pgAdmin (herramienta gráfica) se suele instalar también y es muy útil.
+
+4.  **Broker MQTT (Ej. Mosquitto):**
+    *   Función: Servidor intermediario para los mensajes de los medidores de flujo.
+    *   Instalación (Mosquitto): Ve a https://mosquitto.org/download/
+    *   Alternativa: Puedes usar un broker MQTT público en la nube para pruebas iniciales (ej. test.mosquitto.org), pero no es seguro para datos reales.
+
+5.  **Editor de Código (Recomendado):**
+    *   Función: Ver y editar el código fuente.
+    *   Recomendación: Visual Studio Code (https://code.visualstudio.com/)
+
+---------------------------------------
+PASO 2: OBTENER EL CÓDIGO FUENTE
+---------------------------------------
+
+1.  Clona el repositorio del proyecto usando Git:
+    `git clone <URL_DEL_REPOSITORIO> nombre_carpeta_proyecto`
+    (Reemplaza <URL_DEL_REPOSITORIO> con la URL correcta)
+2.  Navega a la carpeta del proyecto:
+    `cd nombre_carpeta_proyecto`
+
+---------------------------------
+PASO 3: CONFIGURAR EL BACKEND
+---------------------------------
+
+1.  Navega a la carpeta del backend:
+    `cd backend`
+
+2.  Instala las dependencias:
+    `npm install`
+
+3.  Configura la Base de Datos PostgreSQL:
+    *   Inicia PostgreSQL.
+    *   Usando pgAdmin o psql, crea una NUEVA BASE DE DATOS (ej. `flujo_app_db`).
+    *   (Opcional, recomendado) Crea un NUEVO USUARIO/ROL en PostgreSQL para esta aplicación y otórgale permisos sobre la base de datos que acabas de crear.
+
+4.  Configura las Variables de Entorno del Backend:
+    *   Copia el archivo `.env.example` a un nuevo archivo llamado `.env` dentro de la carpeta `backend`.
+    *   Abre `backend/.env` y edita las siguientes variables:
+        *   `DATABASE_URL`: `postgresql://TU_USUARIO_PG:TU_CONTRASENA_PG@localhost:5432/NOMBRE_DE_TU_BD_PG`
+            (Ej: `postgresql://postgres:micontrasena@localhost:5432/flujo_app_db`)
+        *   `MQTT_BROKER_URL`: La URL de tu broker MQTT (Ej. `mqtt://localhost:1883` si usas Mosquitto local).
+        *   `MQTT_USERNAME`, `MQTT_PASSWORD`: Si tu broker MQTT los requiere.
+        *   `JWT_SECRET`: Una cadena de texto LARGA, ALEATORIA y SECRETA (inventa una).
+        *   `FRONTEND_URL`: La URL donde se ejecutará el frontend (normalmente `http://localhost:5173`).
+        *   `PORT`: El puerto para el backend (ej. `3001`).
+
+5.  Ejecuta el Servidor Backend:
+    `npm run dev`
+    *   El servidor debería iniciarse. La primera vez, intentará ejecutar las migraciones para crear las tablas en la base de datos.
+    *   Revisa la consola por mensajes de error (especialmente de conexión a BD o MQTT).
+
+----------------------------------
+PASO 4: CONFIGURAR EL FRONTEND
+----------------------------------
+
+1.  Abre una NUEVA ventana de terminal (deja el backend corriendo en la primera).
+2.  Navega a la carpeta del frontend (desde la raíz del proyecto):
+    `cd frontend`
+
+3.  Instala las dependencias:
+    `npm install`
+
+4.  Configura las Variables de Entorno del Frontend:
+    *   Dentro de la carpeta `frontend`, copia el archivo `.env.development.example` a `.env.development` (si el `.example` existe).
+        (Nota: En la configuración actual, el archivo se llama `.env.development`, no hay un `.env.development.example` explícito, así que crea `.env.development` directamente si es necesario).
+    *   Abre `frontend/.env.development` y edita:
+        *   `VITE_API_BASE_URL`: La URL de tu API backend (Ej. `http://localhost:3001/api` si el backend corre en el puerto 3001).
+
+5.  Ejecuta la Aplicación Frontend:
+    `npm run dev`
+    *   La consola te indicará la URL para abrir en tu navegador (normalmente `http://localhost:5173`).
+
+-------------------------------
+PASO 5: PROBAR LA APLICACIÓN
+-------------------------------
+
+1.  Abre la URL del frontend en tu navegador.
+2.  Registra una nueva "Empresa Cliente".
+3.  Registra un "Usuario" para esa empresa.
+4.  Inicia sesión con el nuevo usuario.
+5.  Ve a la sección de "Dispositivos" y registra un nuevo dispositivo. Anota la "Clave Identificador" que le asignes.
+6.  **Para simular datos de un medidor:**
+    *   Usa una herramienta cliente MQTT (como MQTT Explorer) o un script.
+    *   Conéctate a tu broker MQTT.
+    *   Publica un mensaje JSON al topic que coincida con la "Clave Identificador" de tu dispositivo.
+    *   Formato del mensaje:
+        `{ "flujo_instantaneo": 25.5, "volumen_totalizado": 500.75, "fecha_medicion": "2023-10-28T10:20:30Z" }`
+        (Usa una fecha y hora actual en formato ISO 8601 para `fecha_medicion`).
+    *   Si todo está correcto, el backend procesará este mensaje y lo enviará vía WebSocket al frontend. La visualización de estos datos en gráficos en tiempo real es el siguiente paso de desarrollo después de esta configuración.
+
+--------------------
+SOLUCIÓN DE PROBLEMAS
+--------------------
+*   **Errores de Puerto Ocupado:** Si un puerto (ej. 3001 o 5173) está en uso, puedes cambiarlo en los archivos `.env` (para el backend) o a veces en los scripts de `package.json` o configuración de Vite (para el frontend).
+*   **Errores de Conexión a BD:** Verifica tu `DATABASE_URL`, que el servidor PostgreSQL esté corriendo y que el usuario y la base de datos existan y tengan los permisos correctos.
+*   **Errores de Conexión MQTT:** Verifica `MQTT_BROKER_URL` y que tu broker esté activo y accesible.
